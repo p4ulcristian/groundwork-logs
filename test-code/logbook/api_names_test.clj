@@ -6,5 +6,5 @@
    [logbook.api]))
 
 (deftest the-api-names
-  (is (= '#{settings-shape make-logbook log-function with-context list-errors-since}
+  (is (= '#{settings-shape make-logbook log-function with-context list-errors-since read-counts}
          (set (keys (ns-publics 'logbook.api))))))

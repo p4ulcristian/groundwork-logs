@@ -18,6 +18,9 @@
      ;; the :error lines kept, after the last one a monitor has
      (logbook/list-errors-since logbook 41)
 
+     ;; what it has written, for the app's metrics
+     (logbook/read-counts logbook)
+
    A line is time, level, event, context, data, and error when the data
    held an exception:
 
@@ -35,7 +38,7 @@
    (java.io PrintStream)
    (java.nio.charset StandardCharsets)
    (java.time Instant)
-   (java.util.concurrent.atomic AtomicBoolean)
+   (java.util.concurrent.atomic AtomicBoolean LongAdder)
    (java.util.concurrent.locks ReentrantLock)))
 
 (def settings-shape
@@ -59,7 +62,10 @@
      :lowest-rank   (level-ranks lowest-level)
      :lock          (ReentrantLock.)
      :errors        (atom {:last-seq 0 :kept clojure.lang.PersistentQueue/EMPTY})
-     :failed-before (AtomicBoolean. false)}))
+     :failed-before (AtomicBoolean. false)
+     ;; for read-counts: lines written whole, by level, and lines that couldn't be
+     :lines-written (zipmap settings/levels (repeatedly #(LongAdder.)))
+     :write-failed  (LongAdder.)}))
 
 ;; -----------------------------------------------------------------------------
 ;; Writing
@@ -107,7 +113,8 @@
                      :kept     (if (> (count kept) errors-kept) (pop kept) kept)}))))
 
 (defn- write-line!
-  [{:keys [lowest-rank ^ReentrantLock lock] {line-format :format :as logbook-settings} :settings :as logbook}
+  [{:keys [lowest-rank ^ReentrantLock lock lines-written ^LongAdder write-failed]
+    {line-format :format :as logbook-settings} :settings :as logbook}
    context level event data]
   (try
     (let [[level event data] (turn-bad-call-into-good-one level event data)]
@@ -121,8 +128,10 @@
           (try
             (when (= :error level) (keep-error! logbook line))
             (write-text! logbook-settings text)
+            (.increment ^LongAdder (lines-written level))
             (finally (.unlock lock))))))
     (catch Throwable failure
+      (.increment write-failed)
       (say-failure-once! logbook failure)))
   nil)
 
@@ -163,3 +172,19 @@
    before the first means lines were dropped."
   [logbook since]
   (filterv #(> (get % "seq") since) (:kept @(:errors logbook))))
+
+(defn read-counts
+  "What the logbook has written since it was made, now, for a monitor
+   (the app hands them to its metrics):
+
+     {:lines          {:debug 0 :info 1520 :warn 3 :error 1}  ; lines written whole, by level
+      :write-failures 0                                     ; calls whose line couldn't be written
+      :errors-kept    1}                                    ; :error lines kept now, for list-errors-since
+
+   A call below :lowest-level is no line and isn't counted; a bad call is
+   counted at :error, as it is written. :lines and :write-failures only
+   go up; :errors-kept stops at the settings' :errors-kept."
+  [{:keys [lines-written ^LongAdder write-failed errors]}]
+  {:lines          (update-vals lines-written #(.sum ^LongAdder %))
+   :write-failures (.sum write-failed)
+   :errors-kept    (count (:kept @errors))})

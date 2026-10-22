@@ -1,8 +1,8 @@
 (ns logbook.api-test
   "Both formats from the same calls, context handed down, levels dropped,
    errors kept and listed, values JSON has no place for, an exception with
-   its cause, bad calls, a failing write, and lines whole under many
-   threads."
+   its cause, bad calls, a failing write, the counts, and lines whole
+   under many threads."
   (:require
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
@@ -195,7 +195,27 @@
       (finally (System/setErr old)))
     (is (= 2 @calls))
     (is (= 1 (count (str/split-lines (str err)))) "said once")
-    (is (str/includes? (str err) "java.lang.RuntimeException: disk full"))))
+    (is (str/includes? (str err) "java.lang.RuntimeException: disk full"))
+    (is (= {:lines {:debug 0 :info 0 :warn 0 :error 0} :write-failures 2 :errors-kept 1}
+           (logbook/read-counts lb))
+        "two failures counted; the :error line was kept before the write")))
+
+(deftest the-counts-say-what-was-written
+  (let [texts (atom [])
+        lb    (make-logbook-writing-into texts {:lowest-level :info :errors-kept 2})
+        log   (logbook/log-function lb)]
+    (is (= {:lines {:debug 0 :info 0 :warn 0 :error 0} :write-failures 0 :errors-kept 0}
+           (logbook/read-counts lb))
+        "nothing yet")
+    (log :debug :test/below {})
+    (log :info :test/one {})
+    (log :info :test/two {})
+    ((logbook/with-context log {:request-id "7f3a"}) :warn :test/three {})
+    (dotimes [_ 3] (log :error :test/four {}))
+    (log :fifth :test/five {})
+    (is (= {:lines {:debug 0 :info 2 :warn 1 :error 4} :write-failures 0 :errors-kept 2}
+           (logbook/read-counts lb))
+        "below the lowest level, nothing; a bad call at :error; the kept errors stop at :errors-kept")))
 
 (deftest standard-output-gets-the-lines
   (let [out (java.io.ByteArrayOutputStream.)

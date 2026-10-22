@@ -23,6 +23,7 @@ Needs only jsonista and malli. One public namespace, `logbook.api`.
 | `log-function` | the logbook's log, `(log level event data)`, no context; returns nil, never throws |
 | `with-context` | a new log writing this context into every line, merged over the given log's |
 | `list-errors-since` | the kept `:error` lines numbered after `n`, oldest first, as written |
+| `read-counts` | what it has written, now: lines by level, lines that couldn't be written, `:error` lines kept; for the app's metrics |
 
 ```clojure
 (require '[logbook.api :as logbook])
@@ -47,7 +48,15 @@ Needs only jsonista and malli. One public namespace, `logbook.api`.
 
 (logbook/list-errors-since book 0)
 ;=> [{"seq" 1 "time" "…" "level" "error" "event" "mailroom/handler-failed" …}]
+
+(logbook/read-counts book)
+;=> {:lines {:debug 0 :info 1 :warn 1 :error 1} :write-failures 0 :errors-kept 1}
 ```
+
+`read-counts` is for the app's metrics: logbook counts nothing into a
+meter itself (meter's own log is a logbook), so the app reads these when
+its metrics are written
+([why](decisions/2026-10-23-what-is-written-is-counted-and-read-by-the-app.md)).
 
 `:readable` writes the same calls as
 
