@@ -1,0 +1,17 @@
+;; logbook: manor's logging. One function, (log level event data), handed to
+;; every library; a line on standard output, JSON or readable; the errors kept
+;; for pulling. One tree: source-code/logbook/.
+{:paths ["source-code"]
+
+ :deps
+ {;; the JSON lines
+  metosin/jsonista {:mvn/version "1.0.2"}
+  ;; the settings, checked before anything is written
+  metosin/malli    {:mvn/version "0.20.3"}}
+
+ :aliases
+ {;; the tests:  clojure -X:test
+  :test {:extra-paths ["test-code"]
+         :extra-deps  {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+         :exec-fn     cognitect.test-runner.api/test
+         :exec-args   {:dirs ["test-code"]}}}}
