@@ -10,7 +10,7 @@ value with `with-context`, not a dynamic var. The newest `:error` lines are
 kept in memory, numbered, for a monitor to pull.
 
 ```clojure
-io.github.p4ulcristian/logbook {:git/tag "v0.1.0" :git/sha "…"}
+io.github.p4ulcristian/logbook {:git/tag "v0.1.0" :git/sha "7c3222f"}
 ```
 
 Needs only jsonista and malli. One public namespace, `logbook.api`.
