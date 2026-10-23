@@ -13,7 +13,7 @@
 
      ;; whoever runs the work hands down a log that knows it
      (def request-log (logbook/with-context log {:request-id \"7f3a…\"}))
-     (request-log :error :mailroom/handler-failed {:mailroom/message-name :orders/of-shop :error e})
+     (request-log :error :bridge/handler-failed {:bridge/message-name :orders/of-shop :error e})
 
      ;; the :error lines kept, after the last one a monitor has
      (logbook/list-errors-since logbook 41)

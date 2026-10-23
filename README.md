@@ -43,11 +43,11 @@ Needs only jsonista and malli. One public namespace, `logbook.api`.
 ;;  "context":{"request-id":"7f3a…","person-id":"41b2…"},
 ;;  "data":{"background-job/id":"9c1e…","background-job/attempts":5}}
 
-(person-log :error :mailroom/handler-failed {:mailroom/message-name :orders/of-shop :error e})
+(person-log :error :bridge/handler-failed {:bridge/message-name :orders/of-shop :error e})
 ;; … "error":{"class":"java.net.SocketTimeoutException","message":"Read timed out","stack":"…"}
 
 (logbook/list-errors-since book 0)
-;=> [{"seq" 1 "time" "…" "level" "error" "event" "mailroom/handler-failed" …}]
+;=> [{"seq" 1 "time" "…" "level" "error" "event" "bridge/handler-failed" …}]
 
 (logbook/read-counts book)
 ;=> {:lines {:debug 0 :info 1 :warn 1 :error 1} :write-failures 0 :errors-kept 1}
@@ -88,7 +88,7 @@ Labels stay few and come from the shipper, not the line: `app`, `env`,
 ```logql
 {app="shop", env="production", level="error"}
 {app="shop"} | json | context_request_id="7f3a…"
-{app="shop"} | json | context_person_id="41b2…" | event="mailroom/handler-failed"
+{app="shop"} | json | context_person_id="41b2…" | event="bridge/handler-failed"
 {app="shop"} | json | event="backroom/gave-up" | data_background_job_attempts >= 5
 {app="shop", level="error"} | json | error_cause_class="java.net.SocketTimeoutException"
 ```
