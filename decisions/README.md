@@ -2,7 +2,7 @@
 
 One file per decision: `YYYY-MM-DD-what-we-decided.md`. The title is the decision. Each file says what we decided, why, and what we chose against. A decision changes by a new file; the old one says so at the top (`Replaced by` or `Changed in part by`), and nothing else in it is rewritten.
 
-logbook is manor's logging (manor: house and the libraries it puts together). The first six were decided before any code; the next three settled what they left open, as v0.1.0 was built; the last came with meter, manor's metrics (v0.1.1).
+logbook is groundwork's logging (groundwork: the libraries and the composer of the same name that puts them together). The first six were decided before any code; the next three settled what they left open, as v0.1.0 was built; the last came with meter, groundwork's metrics (v0.1.1).
 
 - [A log call is level, event, data](2026-10-22-a-log-call-is-level-event-data.md)
 - [Four levels, and a lowest level the app sets](2026-10-22-four-levels-and-a-lowest-level.md)

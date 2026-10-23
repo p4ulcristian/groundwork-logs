@@ -30,7 +30,7 @@
 (defn- make-the-calls [log]
   (let [request-log (logbook/with-context log {:request-id "7f3a"})
         person-log  (logbook/with-context request-log {:person-id #uuid "41000000-0000-4000-8000-000000000041"})]
-    (log :info :house/started {:house/version "1" :house/port 8080})
+    (log :info :groundwork/started {:groundwork/version "1" :groundwork/port 8080})
     (person-log :warn :backroom/gave-up {:background-job/id order-id :background-job/attempts 5
                                          :total 120.50M :on (LocalDate/parse "2026-10-22")
                                          :at (Instant/parse "2026-10-22T23:10:04.120Z") :status :order/paid})))
@@ -40,10 +40,10 @@
         log   (logbook/log-function (make-logbook-writing-into texts {}))]
     (make-the-calls log)
     (is (every? #(and (str/ends-with? % "\n") (= 1 (count (str/split-lines %)))) @texts) "one line each")
-    (is (re-matches #"\{\"time\":\"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\",\"level\":\"info\",\"event\":\"house/started\",.*\n"
+    (is (re-matches #"\{\"time\":\"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z\",\"level\":\"info\",\"event\":\"groundwork/started\",.*\n"
                     (first @texts))
         "time, level and event first, the time to the millisecond in UTC")
-    (is (= [{"level" "info" "event" "house/started" "context" {} "data" {"house/version" "1" "house/port" 8080}}
+    (is (= [{"level" "info" "event" "groundwork/started" "context" {} "data" {"groundwork/version" "1" "groundwork/port" 8080}}
             {"level"   "warn" "event" "backroom/gave-up"
              "context" {"request-id" "7f3a" "person-id" "41000000-0000-4000-8000-000000000041"}
              "data"    {"background-job/id" (str order-id) "background-job/attempts" 5 "total" "120.50"
@@ -55,9 +55,9 @@
   (let [texts (atom [])
         log   (logbook/log-function (make-logbook-writing-into texts {:format :readable}))]
     (make-the-calls log)
-    (is (= [" INFO   house/started"
-            "    data     house/version \"1\""
-            "             house/port    8080"
+    (is (= [" INFO   groundwork/started"
+            "    data     groundwork/version \"1\""
+            "             groundwork/port    8080"
             " WARN   backroom/gave-up"
             "    context  request-id \"7f3a\""
             "             person-id  \"41000000-0000-4000-8000-000000000041\""

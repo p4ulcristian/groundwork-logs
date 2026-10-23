@@ -1,5 +1,5 @@
 (ns logbook.api
-  "manor's logging: one function, (log level event data), which the app
+  "groundwork's logging: one function, (log level event data), which the app
    makes once and hands to every library; a library never decides how a
    line is written. logbook's one public namespace.
 

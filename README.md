@@ -34,7 +34,7 @@ Needs only jsonista and malli. One public namespace, `logbook.api`.
                                  :write-to     :stdout})) ; or (f text), each line whole
 (def log (logbook/log-function book))
 
-(log :info :house/started {:house/version "2026-10-22.1"})
+(log :info :groundwork/started {:groundwork/version "2026-10-22.1"})
 
 (def request-log (logbook/with-context log {:request-id "7f3a…"}))
 (def person-log  (logbook/with-context request-log {:person-id #uuid "41b2…"}))
