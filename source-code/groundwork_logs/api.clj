@@ -1,30 +1,30 @@
-(ns logbook.api
+(ns groundwork-logs.api
   "groundwork's logging: one function, (log level event data), which the app
    makes once and hands to every library; a library never decides how a
-   line is written. logbook's one public namespace.
+   line is written. groundwork-logs's one public namespace.
 
-     (def logbook (logbook/make-logbook {:lowest-level :info
+     (def logger (logs/make-logger {:lowest-level :info
                                          :format       :json
                                          :errors-kept  1000
                                          :write-to     :stdout}))
-     (def log (logbook/log-function logbook))
+     (def log (logs/log-function logger))
 
-     (log :warn :backroom/gave-up {:background-job/id id :background-job/attempts 5})
+     (log :warn :groundwork-background-jobs/gave-up {:background-job/id id :background-job/attempts 5})
 
      ;; whoever runs the work hands down a log that knows it
-     (def request-log (logbook/with-context log {:request-id \"7f3a…\"}))
-     (request-log :error :bridge/handler-failed {:bridge/message-name :orders/of-shop :error e})
+     (def request-log (logs/with-context log {:request-id \"7f3a…\"}))
+     (request-log :error :groundwork-bridge/handler-failed {:groundwork-bridge/message-name :orders/of-shop :error e})
 
      ;; the :error lines kept, after the last one a monitor has
-     (logbook/list-errors-since logbook 41)
+     (logs/list-errors-since logger 41)
 
      ;; what it has written, for the app's metrics
-     (logbook/read-counts logbook)
+     (logs/read-counts logger)
 
    A line is time, level, event, context, data, and error when the data
    held an exception:
 
-     {\"time\":\"2026-10-22T23:10:04.120Z\",\"level\":\"warn\",\"event\":\"backroom/gave-up\",
+     {\"time\":\"2026-10-22T23:10:04.120Z\",\"level\":\"warn\",\"event\":\"groundwork-background-jobs/gave-up\",
       \"context\":{\"request-id\":\"7f3a…\"},\"data\":{\"background-job/id\":\"9c1e…\",\"background-job/attempts\":5}}
 
    A log call never throws: a level, event or data that isn't one is
@@ -32,8 +32,8 @@
    as its printed form; a line that can't be written is said once on
    standard error. Each line is written whole, one at a time."
   (:require
-   [logbook.lines :as lines]
-   [logbook.settings :as settings])
+   [groundwork-logs.lines :as lines]
+   [groundwork-logs.settings :as settings])
   (:import
    (java.io PrintStream)
    (java.nio.charset StandardCharsets)
@@ -42,22 +42,22 @@
    (java.util.concurrent.locks ReentrantLock)))
 
 (def settings-shape
-  "make-logbook's settings, every key required:
+  "make-logger's settings, every key required:
    {:lowest-level :debug|:info|:warn|:error :format :json|:readable
     :errors-kept n :write-to :stdout-or-(f text)}. See
-   logbook.settings/settings-shape for each key."
+   groundwork-logs.settings/settings-shape for each key."
   settings/settings-shape)
 
 (def ^:private level-ranks
   (zipmap settings/levels (range)))
 
-(defn make-logbook
-  "A logbook from its settings (settings-shape), every key required,
+(defn make-logger
+  "A logger from its settings (settings-shape), every key required,
    checked first: a missing or unknown one refuses, named, with every other
-   problem at once (:logbook/bad-settings). Returns the logbook, for
+   problem at once (:groundwork-logs/bad-settings). Returns the logger, for
    log-function and list-errors-since."
-  [logbook-settings]
-  (let [{:keys [lowest-level] :as checked} (settings/check-settings logbook-settings)]
+  [logs-settings]
+  (let [{:keys [lowest-level] :as checked} (settings/check-settings logs-settings)]
     {:settings      checked
      :lowest-rank   (level-ranks lowest-level)
      :lock          (ReentrantLock.)
@@ -81,14 +81,14 @@
     (if (and good-level? good-event? good-data?)
       [level event data]
       [:error
-       (if good-event? event :logbook/bad-event)
-       (cond-> (if good-data? data {:logbook/given-data data})
-         (not good-level?) (assoc :logbook/given-level level)
-         (not good-event?) (assoc :logbook/given-event event))])))
+       (if good-event? event :groundwork-logs/bad-event)
+       (cond-> (if good-data? data {:groundwork-logs/given-data data})
+         (not good-level?) (assoc :groundwork-logs/given-level level)
+         (not good-event?) (assoc :groundwork-logs/given-event event))])))
 
 (defn- say-failure-once! [{:keys [^AtomicBoolean failed-before]} ^Throwable failure]
   (when (.compareAndSet failed-before false true)
-    (try (.println System/err (str "logbook: a line couldn't be written, and later failures won't be said: "
+    (try (.println System/err (str "groundwork-logs: a line couldn't be written, and later failures won't be said: "
                                    (.getName (class failure)) ": " (ex-message failure)))
          (catch Throwable _ nil))))
 
@@ -114,7 +114,7 @@
 
 (defn- write-line!
   [{:keys [lowest-rank ^ReentrantLock lock lines-written ^LongAdder write-failed]
-    {line-format :format :as logbook-settings} :settings :as logbook}
+    {line-format :format :as logs-settings} :settings :as logger}
    context level event data]
   (try
     (let [[level event data] (turn-bad-call-into-good-one level event data)]
@@ -126,43 +126,43 @@
           ;; one line at a time, whole: written and kept in the same order
           (.lock lock)
           (try
-            (when (= :error level) (keep-error! logbook line))
-            (write-text! logbook-settings text)
+            (when (= :error level) (keep-error! logger line))
+            (write-text! logs-settings text)
             (.increment ^LongAdder (lines-written level))
             (finally (.unlock lock))))))
     (catch Throwable failure
       (.increment write-failed)
-      (say-failure-once! logbook failure)))
+      (say-failure-once! logger failure)))
   nil)
 
 ;; -----------------------------------------------------------------------------
 ;; Log functions
 
-(defn- make-log [logbook context]
-  (with-meta (fn log [level event data] (write-line! logbook context level event data))
-    {::logbook logbook ::context context}))
+(defn- make-log [logger context]
+  (with-meta (fn log [level event data] (write-line! logger context level event data))
+    {::logger logger ::context context}))
 
 (defn log-function
-  "The logbook's log function, with no context: (log level event data).
+  "The logger's log function, with no context: (log level event data).
    level is :debug, :info, :warn or :error; event a namespaced keyword
    naming what happened; data a map, {} for none, any exception in it
    written as the line's error. Returns nil, never throws."
-  [logbook]
-  (make-log logbook {}))
+  [logger]
+  (make-log logger {}))
 
 (defn with-context
   "A new log function writing this context into every line's context,
    merged over what the given log already carried. log must be one made by
-   log-function or with-context (:logbook/not-a-log), context a map
-   (:logbook/bad-context)."
+   log-function or with-context (:groundwork-logs/not-a-log), context a map
+   (:groundwork-logs/bad-context)."
   [log context]
-  (let [{::keys [logbook] :as made} (meta log)]
-    (when-not logbook
-      (throw (ex-info "with-context takes a log made by logbook's log-function or with-context"
-                      {:type :logbook/not-a-log})))
+  (let [{::keys [logger] :as made} (meta log)]
+    (when-not logger
+      (throw (ex-info "with-context takes a log made by groundwork-logs's log-function or with-context"
+                      {:type :groundwork-logs/not-a-log})))
     (when-not (map? context)
-      (throw (ex-info "A context is a map" {:type :logbook/bad-context :context context})))
-    (make-log logbook (merge (::context made) context))))
+      (throw (ex-info "A context is a map" {:type :groundwork-logs/bad-context :context context})))
+    (make-log logger (merge (::context made) context))))
 
 (defn list-errors-since
   "The :error lines kept (the newest :errors-kept) whose sequence number is
@@ -170,11 +170,11 @@
    its number first, {\"seq\" 42 \"time\" … \"level\" \"error\" \"event\" …}.
    Numbers start at 1 and count every :error line, kept or not: a gap
    before the first means lines were dropped."
-  [logbook since]
-  (filterv #(> (get % "seq") since) (:kept @(:errors logbook))))
+  [logger since]
+  (filterv #(> (get % "seq") since) (:kept @(:errors logger))))
 
 (defn read-counts
-  "What the logbook has written since it was made, now, for a monitor
+  "What the logger has written since it was made, now, for a monitor
    (the app hands them to its metrics):
 
      {:lines          {:debug 0 :info 1520 :warn 3 :error 1}  ; lines written whole, by level

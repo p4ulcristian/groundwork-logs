@@ -1,4 +1,4 @@
-# logbook
+# groundwork-logs
 
 Logging for a Clojure app and its libraries, in one function:
 `(log level event data)`. The app makes it once and hands it to every
@@ -10,58 +10,58 @@ value with `with-context`, not a dynamic var. The newest `:error` lines are
 kept in memory, numbered, for a monitor to pull.
 
 ```clojure
-io.github.p4ulcristian/logbook {:git/tag "v0.1.2" :git/sha "823f8fc"}
+io.github.p4ulcristian/groundwork-logs {:git/tag "v0.1.2" :git/sha "823f8fc"}
 ```
 
-Needs only jsonista and malli. One public namespace, `logbook.api`.
+Needs only jsonista and malli. One public namespace, `groundwork-logs.api`.
 
 ## The api
 
 | name | does |
 |---|---|
-| `make-logbook` `settings-shape` | a logbook from its settings, every key required, checked first |
-| `log-function` | the logbook's log, `(log level event data)`, no context; returns nil, never throws |
+| `make-logger` `settings-shape` | a logger from its settings, every key required, checked first |
+| `log-function` | the logger's log, `(log level event data)`, no context; returns nil, never throws |
 | `with-context` | a new log writing this context into every line, merged over the given log's |
 | `list-errors-since` | the kept `:error` lines numbered after `n`, oldest first, as written |
 | `read-counts` | what it has written, now: lines by level, lines that couldn't be written, `:error` lines kept; for the app's metrics |
 
 ```clojure
-(require '[logbook.api :as logbook])
+(require '[groundwork-logs.api :as logs])
 
-(def book (logbook/make-logbook {:lowest-level :info      ; :debug :info :warn :error; below it, nothing
+(def book (logs/make-logger {:lowest-level :info      ; :debug :info :warn :error; below it, nothing
                                  :format       :json      ; or :readable
                                  :errors-kept  1000       ; the newest :error lines, for list-errors-since
                                  :write-to     :stdout})) ; or (f text), each line whole
-(def log (logbook/log-function book))
+(def log (logs/log-function book))
 
 (log :info :groundwork/started {:groundwork/version "2026-10-22.1"})
 
-(def request-log (logbook/with-context log {:request-id "7f3a…"}))
-(def person-log  (logbook/with-context request-log {:person-id #uuid "41b2…"}))
-(person-log :warn :backroom/gave-up {:background-job/id job-id :background-job/attempts 5})
-;; {"time":"2026-10-22T23:10:04.120Z","level":"warn","event":"backroom/gave-up",
+(def request-log (logs/with-context log {:request-id "7f3a…"}))
+(def person-log  (logs/with-context request-log {:person-id #uuid "41b2…"}))
+(person-log :warn :groundwork-background-jobs/gave-up {:background-job/id job-id :background-job/attempts 5})
+;; {"time":"2026-10-22T23:10:04.120Z","level":"warn","event":"groundwork-background-jobs/gave-up",
 ;;  "context":{"request-id":"7f3a…","person-id":"41b2…"},
 ;;  "data":{"background-job/id":"9c1e…","background-job/attempts":5}}
 
-(person-log :error :bridge/handler-failed {:bridge/message-name :orders/of-shop :error e})
+(person-log :error :groundwork-bridge/handler-failed {:groundwork-bridge/message-name :orders/of-shop :error e})
 ;; … "error":{"class":"java.net.SocketTimeoutException","message":"Read timed out","stack":"…"}
 
-(logbook/list-errors-since book 0)
-;=> [{"seq" 1 "time" "…" "level" "error" "event" "bridge/handler-failed" …}]
+(logs/list-errors-since book 0)
+;=> [{"seq" 1 "time" "…" "level" "error" "event" "groundwork-bridge/handler-failed" …}]
 
-(logbook/read-counts book)
+(logs/read-counts book)
 ;=> {:lines {:debug 0 :info 1 :warn 1 :error 1} :write-failures 0 :errors-kept 1}
 ```
 
-`read-counts` is for the app's metrics: logbook counts nothing into a
-meter itself (meter's own log is a logbook), so the app reads these when
+`read-counts` is for the app's metrics: groundwork-logs counts nothing into a
+meter itself (groundwork-metrics's own log is a logger), so the app reads these when
 its metrics are written
 ([why](decisions/2026-10-23-what-is-written-is-counted-and-read-by-the-app.md)).
 
 `:readable` writes the same calls as
 
 ```
-2026-10-22T23:10:04.120Z  WARN   backroom/gave-up
+2026-10-22T23:10:04.120Z  WARN   background-jobs/gave-up
     context  request-id "7f3a…"
              person-id  "41b2…"
     data     background-job/id       "9c1e…"
@@ -88,8 +88,8 @@ Labels stay few and come from the shipper, not the line: `app`, `env`,
 ```logql
 {app="shop", env="production", level="error"}
 {app="shop"} | json | context_request_id="7f3a…"
-{app="shop"} | json | context_person_id="41b2…" | event="bridge/handler-failed"
-{app="shop"} | json | event="backroom/gave-up" | data_background_job_attempts >= 5
+{app="shop"} | json | context_person_id="41b2…" | event="groundwork-bridge/handler-failed"
+{app="shop"} | json | event="groundwork-background-jobs/gave-up" | data_background_job_attempts >= 5
 {app="shop", level="error"} | json | error_cause_class="java.net.SocketTimeoutException"
 ```
 

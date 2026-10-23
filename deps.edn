@@ -1,6 +1,6 @@
-;; logbook: groundwork's logging. One function, (log level event data), handed to
+;; groundwork-logs: groundwork's logging. One function, (log level event data), handed to
 ;; every library; a line on standard output, JSON or readable; the errors kept
-;; for pulling. One tree: source-code/logbook/.
+;; for pulling. One tree: source-code/groundwork_logs/.
 {:paths ["source-code"]
 
  :deps

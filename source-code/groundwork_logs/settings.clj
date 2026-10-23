@@ -1,5 +1,5 @@
-(ns logbook.settings
-  "logbook's settings, as a malli shape, checked before anything is
+(ns groundwork-logs.settings
+  "groundwork-logs's settings, as a malli shape, checked before anything is
    written. Nothing has a default: every key is written out, and a missing
    or unknown one refuses, named, with every other problem at once."
   (:require
@@ -11,7 +11,7 @@
   [:debug :info :warn :error])
 
 (def settings-shape
-  "make-logbook's settings, every key required.
+  "make-logger's settings, every key required.
    :lowest-level: :debug, :info, :warn or :error; a call below it writes
    nothing (production :info, development :debug).
    :format: :json, one JSON object per line, for a shipper (Vector, Loki);
@@ -29,11 +29,11 @@
    [:write-to [:or [:= :stdout] fn?]]])
 
 (defn check-settings
-  "Returns the settings; throws {:type :logbook/bad-settings :errors …}
+  "Returns the settings; throws {:type :groundwork-logs/bad-settings :errors …}
    with every problem at once."
   [settings]
   (when-let [explanation (malli/explain settings-shape settings)]
     (let [errors (malli-error/humanize explanation)]
       (throw (ex-info (str "The settings have problems: " (pr-str errors))
-                      {:type :logbook/bad-settings :errors errors}))))
+                      {:type :groundwork-logs/bad-settings :errors errors}))))
   settings)

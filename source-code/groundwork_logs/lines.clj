@@ -1,4 +1,4 @@
-(ns logbook.lines
+(ns groundwork-logs.lines
   "One call made into one line: its parts turned into JSON-ready data
    (text keys, text for what JSON has no type for), then written as JSON or
    readable. Nothing here throws on a value: what can't be written as it is
@@ -115,7 +115,7 @@
   [data]
   (try (turn-map-into-json-data data)
        (catch Throwable e
-         {"logbook/unwritable-data" (str (.getName (class e)) ": " (ex-message e))})))
+         {"groundwork-logs/unwritable-data" (str (.getName (class e)) ": " (ex-message e))})))
 
 (defn make-line
   "A call as the line's data, in its order: time, level, event, context,
